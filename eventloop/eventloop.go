@@ -12,7 +12,7 @@ import (
 type Action int 
 
 const(
-	Node	Action = iota
+	None	Action = iota
 	
 	Detach
 
@@ -48,7 +48,7 @@ type Conn interface {
 	LocalAddr()	net.Addr
 
 	RemoteAddr()	net.Addr
-
+	// Wake triggers a Data event for this connection
 	Wake()
 }
 
@@ -58,7 +58,8 @@ const (
 	Random	LoadBalance = iota
 
 	RoundRobin
-
+	// the next accepted connection to the loop with 
+	// the least number of active connections
 	LeastConnections
 )
 
@@ -67,6 +68,9 @@ const (
 // of the connection and server
 type Events struct {
 
+	// Setting this to a value greater than 1 will effectively make
+	// the server multithreaded for multi-core machines.Which means you must
+	// take care wiht synchonizing memory between all event callbacks.
 	NumLoops	int
 
 	LoadBalance	LoadBalance
