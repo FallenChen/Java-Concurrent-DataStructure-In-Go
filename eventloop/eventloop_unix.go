@@ -4,10 +4,11 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
-	"github.com/gogo/protobuf/test/issue312/events"
+
 )
 
 type conn struct {
@@ -144,4 +145,67 @@ func server(events Events, listeners []*listener) error {
 		go loopRun(s,l)
 	}
 	return nil
+}
+
+func loopCloseConn(s *server, l *loop, c *conn, err error) error {
+	atomic.AddInt32(&l.count, -1)
+	delete(l.fdconns, c.fd)
+	syscall.Close(c.fd)
+	if s.events.Closed != nil {
+		switch s.events.Closed(c, err) {
+		case None:
+		case Shutdown:
+			return errClosing
+		}
+	}
+	return nil
+}
+
+func loopDetachConn(s *server, l *loop, c *conn, err error) error {
+	if s.events.Detached == nil {
+		return loopCloseConn(s, l, c, err)
+	}
+	l.pool.ModDetach(c.fd)
+
+	atomic.AddInt32(&l.count, -1)
+	delete(l.fdconns, c.fd)
+	if err := syscall.SetNonblock(c.fd, false); err != nil {
+		return err
+	}
+	switch s.events.Detached(c, &detachedConn{fd: c.fd}) {
+	case None:
+	case Shutdown:
+		return errClosing
+	}
+	return nil
+}
+
+func loopRun(s *server, l *loop) {
+	defer func() {
+		s.signalShutdown()
+		s.wg.Done()
+	}()
+
+	if l.idx == 0 && s.events.Tick != nil {
+		go loopTicker(s,l)
+	}
+
+	l.poll.Wait(func(fd int, note interface{}) error {
+		if fd == 0 {
+			return loopNote(s, l, note)
+		}
+		c := l.fdconns[fd]
+		switch{
+		case c == nil:
+			return loopAccept(s,l,fd)
+		case !c.opened:
+			return loopOpened(s,l,c)
+		case len(c.out) > 0 :
+			return loopWrite(s, l, c)
+		case c.action != None:
+			return loopAction(s, l, c)
+		default:
+			return loopRead(s, l ,c)
+		}
+	})
 }
