@@ -1,28 +1,28 @@
 package eventloop
 
 import (
+	"garry.org/data_structure/eventloop/internal"
 	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
-
-
 )
 
 type conn struct {
-	fd		int		// file descriptor
-	lnidx		int		// listener index in the server lns list
-	out		[]byte		// write buffer
-	sa		syscall.Sockaddr// remote socket address
-	reuse		bool		// should reuse input buffer
-	opened		bool 		// connection opened event fired
-	ctx 		interface{}	// user-defined context
-	addrIndex 	int		// index of listening address
-	localAddr 	net.Addr	// local addr
-	remoteAddr 	net.Addr	// remote addr
-	loop 		*loop 		// connected loop
+	fd         int              // file descriptor
+	lnidx      int              // listener index in the server lns list
+	out        []byte           // write buffer
+	sa         syscall.Sockaddr // remote socket address
+	reuse      bool             // should reuse input buffer
+	opened     bool             // connection opened event fired
+	action     Action           // next user action
+	ctx        interface{}      // user-defined context
+	addrIndex  int              // index of listening address
+	localAddr  net.Addr         // local addr
+	remoteAddr net.Addr         // remote addr
+	loop       *loop            // connected loop
 }
 
 func (c *conn) Context() interface{}       { return c.ctx }
@@ -32,29 +32,28 @@ func (c *conn) LocalAddr() net.Addr        { return c.localAddr }
 func (c *conn) RemoteAddr() net.Addr       { return c.remoteAddr }
 func (c *conn) Wake() {
 	if c.loop != nil {
-		c.loop.poll.Trigger(c)
+		c.loop.pool.Trigger(c)
 	}
 }
 
 type server struct {
-	events			Events 		// user events
-	loops			[]*loop		// all the loops
-	lns			[]*listener	// all the listeners
-	wg			sync.WaitGroup	// loop close waitgroup
-	cond 			*sync.Cond	// shutdown signal
-	balance 		LoadBalance	// load balancing method
-	accepted 		uintptr		// accept counter
-	tch			chan time.Duration// ticker channel
+	events   Events             // user events
+	loops    []*loop            // all the loops
+	lns      []*listener        // all the listeners
+	wg       sync.WaitGroup     // loop close waitgroup
+	cond     *sync.Cond         // shutdown signal
+	balance  LoadBalance        // load balancing method
+	accepted uintptr            // accept counter
+	tch      chan time.Duration // ticker channel
 }
 
 type loop struct {
-	idx 		int 		// loop index in the server loops list
-	pool 		*internal.Poll 	// epoll or kqueue
-	packet 		[]byte 		// read packet buffer
-	fdconns		map[int]*conn 	// loop connections fd -> conn
-	count 		int32		// connection count
+	idx     int            // loop index in the server loops list
+	pool    *internal.Poll // epoll or kqueue
+	packet  []byte         // read packet buffer
+	fdconns map[int]*conn  // loop connections fd -> conn
+	count   int32          // connection count
 }
-
 
 // waitForShutdown waits for a signal to shutdown
 func (s *server) waitForShutdown() {
@@ -70,8 +69,8 @@ func (s *server) signalShutdown() {
 	s.cond.L.Unlock()
 }
 
-func server(events Events, listeners []*listener) error {
-	
+func serve(events Events, listeners []*listener) error {
+
 	numLoops := events.NumLoops
 	if numLoops <= 0 {
 		if numLoops == 0 {
@@ -93,7 +92,7 @@ func server(events Events, listeners []*listener) error {
 		var svr Server
 		svr.NumLoops = numLoops
 		svr.Addrs = make([]net.Addr, len(listeners))
-		for i,ln := range listeners {
+		for i, ln := range listeners {
 			svr.Addrs[i] = ln.lnaddr
 		}
 		action := s.events.Serving(svr)
@@ -109,7 +108,7 @@ func server(events Events, listeners []*listener) error {
 		s.waitForShutdown()
 
 		// notify all loops to close by closing all listeners
-		for _,l := range s.loops {
+		for _, l := range s.loops {
 			l.pool.Trigger(errClosing)
 		}
 
@@ -117,9 +116,9 @@ func server(events Events, listeners []*listener) error {
 		s.wg.Wait()
 
 		// close loops and all outstanding connections
-		for _,l := range s.loops {
-			for _,c := range l.fdconns {
-				loopCloseConn(s,l,c,nil)
+		for _, l := range s.loops {
+			for _, c := range l.fdconns {
+				loopCloseConn(s, l, c, nil)
 			}
 			l.pool.Close()
 		}
@@ -127,12 +126,12 @@ func server(events Events, listeners []*listener) error {
 	}()
 
 	// create loops locally and bind the listeners
-	for i:=0; i<numLoops; i++ {
+	for i := 0; i < numLoops; i++ {
 		l := &loop{
-			idx :		i,
-			pool:		internal.OpenPool(),
-			packet: 	make([]byte, 0xFFFF),
-			fdconns:        make(map[int]*conn),
+			idx:     i,
+			pool:    internal.OpenPoll(),
+			packet:  make([]byte, 0xFFFF),
+			fdconns: make(map[int]*conn),
 		}
 		for _, ln := range listeners {
 			l.pool.AddRead(ln.fd)
@@ -141,8 +140,8 @@ func server(events Events, listeners []*listener) error {
 	}
 	// start loops in backround
 	s.wg.Add(len(s.loops))
-	for _,l := range s.loops {
-		go loopRun(s,l)
+	for _, l := range s.loops {
+		go loopRun(s, l)
 	}
 	return nil
 }
@@ -187,7 +186,7 @@ func loopRun(s *server, l *loop) {
 	}()
 
 	if l.idx == 0 && s.events.Tick != nil {
-		go loopTicker(s,l)
+		go loopTicker(s, l)
 	}
 
 	l.poll.Wait(func(fd int, note interface{}) error {
@@ -195,17 +194,17 @@ func loopRun(s *server, l *loop) {
 			return loopNote(s, l, note)
 		}
 		c := l.fdconns[fd]
-		switch{
+		switch {
 		case c == nil:
-			return loopAccept(s,l,fd)
+			return loopAccept(s, l, fd)
 		case !c.opened:
-			return loopOpened(s,l,c)
-		case len(c.out) > 0 :
+			return loopOpened(s, l, c)
+		case len(c.out) > 0:
 			return loopWrite(s, l, c)
 		case c.action != None:
 			return loopAction(s, l, c)
 		default:
-			return loopRead(s, l ,c)
+			return loopRead(s, l, c)
 		}
 	})
 }
