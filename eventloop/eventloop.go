@@ -9,11 +9,11 @@ import (
 )
 
 // occurs after the completion of an event
-type Action int 
+type Action int
 
-const(
-	None	Action = iota
-	
+const (
+	None Action = iota
+
 	Detach
 
 	Close
@@ -22,43 +22,41 @@ const(
 )
 
 type Options struct {
+	TCPKeepAlive time.Duration
 
-	TCPKeepAlive	time.Duration
-
-	ReuseInputBuffer	bool
+	ReuseInputBuffer bool
 }
 
 // Server represents a server context wichi provides information about the
 // running server and has control functions for managing state
 type Server struct {
+	Addrs []net.Addr
 
-	Addrs	[]net.Addr
-
-	NumLoops	int
+	NumLoops int
 }
 
 type Conn interface {
 	// user-defined context
-	Context()	interface{}
+	Context() interface{}
 
 	SetContext(interface{})
 	// the index of server address that was passed to the Serve call
-	AddrIndex()	int
+	AddrIndex() int
 
-	LocalAddr()	net.Addr
+	LocalAddr() net.Addr
 
-	RemoteAddr()	net.Addr
+	RemoteAddr() net.Addr
 	// Wake triggers a Data event for this connection
 	Wake()
 }
 
-type LoadBalance	int
+type LoadBalance int
 
 const (
-	Random	LoadBalance = iota
+	Random LoadBalance = iota
 
 	RoundRobin
-	// the next accepted connection to the loop with 
+	// the next accepted connection to the loop with
 	// the least number of active connections
 	LeastConnections
 )
@@ -71,9 +69,9 @@ type Events struct {
 	// Setting this to a value greater than 1 will effectively make
 	// the server multithreaded for multi-core machines.Which means you must
 	// take care wiht synchonizing memory between all event callbacks.
-	NumLoops	int
+	NumLoops int
 
-	LoadBalance	LoadBalance
+	LoadBalance LoadBalance
 
 	Serving func(server Server) (action Action)
 
@@ -132,7 +130,6 @@ type addrOpts struct {
 	reusePort bool
 }
 
-
 func parseAddr(addr string) (network, address string, opts addrOpts, stdlib bool) {
 	network = "tcp"
 	address = addr
@@ -167,6 +164,8 @@ func parseAddr(addr string) (network, address string, opts addrOpts, stdlib bool
 	}
 	return
 }
+
+// Serve starts handling events for the specified addresses
 
 func Serve(events Events, addr ...string) error {
 
