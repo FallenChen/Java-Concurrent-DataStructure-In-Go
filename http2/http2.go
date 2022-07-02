@@ -1,5 +1,11 @@
 package http2
 
+// HTTP/2 Version Identification, RFC 7540 section 3.1
+const (
+	ProtocolTLS = "h2"
+	ProtocolTCP = "h2c"
+)
+
 // section 7
 type ErrCode uint32
 
@@ -19,6 +25,13 @@ const (
 	ErrCodeInadequateSecurity ErrCode = 0xc
 	ErrCodeHTTP11Required     ErrCode = 0xd
 )
+
+// section 5.4.1
+type StreamError struct {
+	Err error
+	ErrCode
+	StreamID uint32
+}
 
 const (
 	maxConcurrentStreams = 1<<31 - 1
@@ -40,3 +53,33 @@ const (
 	FrameWindowUpdate FrameType = 0x8
 	FrameContinuation FrameType = 0x9
 )
+
+// Flags is An 8-bit field reserved for boolean flags specific to the frame type.
+type Flags uint8
+
+const (
+	FlagEndStream  Flags = 0x1
+	FlagEndHeaders Flags = 0x4
+	FlagAck        Flags = 0x1
+	FlagPadded     Flags = 0x8
+	FlagPriority   Flags = 0x20
+)
+
+// section 6.7
+type PingFrame struct {
+	Ack  bool
+	Data [8]byte
+}
+
+// section 6.8
+type GoAwayFrame struct {
+	LastStreamID uint32
+	ErrCode
+	DebugData []byte
+}
+
+// section 6.9
+type WindowUpdateFrame struct {
+	StreamID            uint32
+	WindowSizeIncrement uint32
+}
