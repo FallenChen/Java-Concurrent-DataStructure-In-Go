@@ -38,6 +38,24 @@ const (
 	maxInitialWindowSize = 1<<31 - 1
 )
 
+type SettingID uint16
+
+const (
+	SettingHeaderTableSize      SettingID = 0x1
+	SettingEnablePush           SettingID = 0x2
+	SettingMaxConcurrentStreams SettingID = 0x3
+	SettingInitialWindowSize    SettingID = 0x4
+	SettingMaxFrameSize         SettingID = 0x5
+	SettingMaxHeaderListSize    SettingID = 0x6
+)
+
+type setting struct {
+	ID    SettingID
+	Value uint32
+}
+
+type Settings []setting
+
 // FrameType represents Frame Type Registry, defined in RFC 7540 section 11.2.
 type FrameType uint8
 
@@ -64,6 +82,11 @@ const (
 	FlagPadded     Flags = 0x8
 	FlagPriority   Flags = 0x20
 )
+
+type SettingsFrame struct {
+	Ack bool
+	Settings
+}
 
 // section 6.7
 type PingFrame struct {
