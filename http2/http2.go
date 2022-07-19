@@ -6,6 +6,9 @@ const (
 	ProtocolTCP = "h2c"
 )
 
+// section 3.5
+const ClientPreface = "PRI * HTTP/2.0\\r\\n\\r\\nSM\\r\\n\\r\\n"
+
 // section 7
 type ErrCode uint32
 
@@ -27,6 +30,12 @@ const (
 )
 
 // section 5.4.1
+type ConnError struct {
+	Err error
+	ErrCode
+}
+
+// section 5.4.2
 type StreamError struct {
 	Err error
 	ErrCode
@@ -56,6 +65,9 @@ type setting struct {
 
 type Settings []setting
 
+// Header is a collection of headers
+type Header map[string][]string
+
 // FrameType represents Frame Type Registry, defined in RFC 7540 section 11.2.
 type FrameType uint8
 
@@ -83,9 +95,18 @@ const (
 	FlagPriority   Flags = 0x20
 )
 
+// sectuin 6.5
 type SettingsFrame struct {
 	Ack bool
 	Settings
+}
+
+// section 6.6
+type PushPromiseFrame struct {
+	StreamID         uint32
+	PromisedStreamID uint32
+	Header
+	PadLen uint8
 }
 
 // section 6.7
