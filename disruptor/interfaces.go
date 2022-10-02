@@ -7,7 +7,7 @@ type Consumer interface {
 }
 
 type Barrier interface {
-	Load()	int64
+	Load() int64
 }
 
 type WaitStrategy interface {
@@ -17,7 +17,7 @@ type WaitStrategy interface {
 
 type Writer interface {
 	Reserve(count int64) int64
-	Commit(lower, upeer int64)
+	Commit(lower, upper int64)
 }
 
 type Reader interface {
