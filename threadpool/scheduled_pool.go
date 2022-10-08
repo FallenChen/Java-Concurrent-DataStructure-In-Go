@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 type ScheduledThreadPool struct {
 	workers     chan chan interface{}
 	tasks       *sync.Map
@@ -41,8 +40,8 @@ func (stf *ScheduledThreadPool) dispatch() {
 			//Stop the scheduler
 			return
 		default:
-			go stf.intervalRunner()    
-			time.Sleep(time.Second * 1) 
+			go stf.intervalRunner()
+			time.Sleep(time.Second * 1)
 		}
 	}
 }
@@ -56,11 +55,11 @@ func (stf *ScheduledThreadPool) intervalRunner() {
 	if ok {
 		currentTasksSet := currentTasksToRun.(*Set)
 
-		// For each tasks , get a worker from the threadpool and run the task
-		for _,val := range currentTasksSet.GetAll() {
+		// For each task , get a worker from the threadpool and run the task
+		for _, val := range currentTasksSet.GetAll() {
 			go func(job interface{}) {
-				worker :=<-stf.workers
-				worker <-job
+				worker := <-stf.workers
+				worker <- job
 			}(val)
 		}
 	}

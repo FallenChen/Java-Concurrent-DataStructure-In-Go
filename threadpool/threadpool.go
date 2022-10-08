@@ -42,9 +42,9 @@ func (t *ThreadPool) dispatch() {
 		case job := <-t.jobQueue:
 			func(job interface{}) {
 				// find a worker for the job
-				jobChannle := <-t.workerPool
+				jobChannel := <-t.workerPool
 				// submit job to the worker
-				jobChannle <- job
+				jobChannel <- job
 			}(job)
 
 		case <- t.closeHandle:
