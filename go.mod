@@ -3,6 +3,7 @@ module garry.org/data_structure
 go 1.18
 
 require (
+	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
 	github.com/buraksezer/consistent v0.9.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/enriquebris/goconcurrentqueue v0.6.3 // indirect
