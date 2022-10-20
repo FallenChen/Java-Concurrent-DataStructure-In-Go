@@ -224,7 +224,7 @@ func (m ConcurrentMap[V]) Items() map[string]V {
 	return tmp
 }
 
-type IterCb[V any] func(key string, v interface{})
+type IterCb[V any] func(key string, v V)
 
 func (m ConcurrentMap[V]) IterCb(fn IterCb[V]) {
 	for idx := range m {
@@ -299,4 +299,3 @@ func (m *ConcurrentMap[V]) UnmarshalJSON(b []byte) (err error) {
 	}
 	return nil
 }
-
