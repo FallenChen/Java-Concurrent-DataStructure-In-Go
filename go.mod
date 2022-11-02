@@ -10,6 +10,7 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819 // indirect
 	github.com/enriquebris/goconcurrentqueue v0.6.3 // indirect
+	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kavu/go_reuseport v1.5.0 // indirect
 	github.com/tidwall/evio v1.0.8 // indirect
 	golang.org/x/net v0.0.0-20220927171203-f486391704dc // indirect
