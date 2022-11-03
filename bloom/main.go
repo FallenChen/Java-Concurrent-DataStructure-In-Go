@@ -8,8 +8,8 @@ func main() {
 	filter.Add([]byte("Love"))
 
 	if filter.Test([]byte("Love")) {
-		println("Bloom")
+		println("Hit")
 	} else {
-		println("exit")
+		println("Not Hit")
 	}
 }
